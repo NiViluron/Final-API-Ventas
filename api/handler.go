@@ -50,6 +50,33 @@ func (h *handlerUser) handleCreate(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, u)
 }
 
+// handleCreate handles POST /sales
+func (h *handlerSale) handleCreateSale(ctx *gin.Context) {
+	// request payload
+	var req struct {
+		UserID string  `json:"user_id"`
+		Amount float64 `json:"amount"`
+		Status string  `json:"status"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	s := &sale.Sale{
+		UserID: req.UserID,
+		Amount: req.Amount,
+		Status: req.Status,
+	}
+	if err := h.saleService.Create(s); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("sale created", zap.Any("sale", s))
+	ctx.JSON(http.StatusCreated, s)
+}
+
 // handleRead handles GET /users/:id
 func (h *handlerUser) handleRead(ctx *gin.Context) {
 	id := ctx.Param("id")

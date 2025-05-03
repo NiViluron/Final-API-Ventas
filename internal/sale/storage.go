@@ -8,9 +8,6 @@ var ErrEmptyID = errors.New("ID de venta vacía")
 //storage define la interfaz para el almacenamiento de ventas
 type Storage interface {
 	Set(sale *Sale) error
-	Read(id string) (*Sale, error)
-	All() []*Sale
-	Delete(id string) error
 }
 
 // LocalStorage es una implementación en memoria del almacenamiento de ventas
@@ -23,4 +20,13 @@ func NewLocalStorage() *LocalStorage {
 	return &LocalStorage{
 		m: map[string]*Sale{},
 	}
+}
+
+func (l *LocalStorage) Set(sale *Sale) error {
+	if sale.ID == "" {
+		return ErrEmptyID
+	}
+
+	l.m[sale.ID] = sale
+	return nil
 }
