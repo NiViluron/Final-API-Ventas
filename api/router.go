@@ -2,7 +2,6 @@ package api
 
 import (
 	"Final-API-Ventas/internal/user"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -18,19 +17,13 @@ func InitRoutes(e *gin.Engine) {
 	storage := user.NewLocalStorage()
 	service := user.NewService(storage, logger)
 
-	h := handler{
+	hUser := handlerUser{
 		userService: service,
 		logger:      logger,
 	}
 
-	e.POST("/users", h.handleCreate)
-	e.GET("/users/:id", h.handleRead)
-	e.PATCH("/users/:id", h.handleUpdate)
-	e.DELETE("/users/:id", h.handleDelete)
-
-	e.GET("/ping", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
-	})
+	e.POST("/users", hUser.handleCreate)
+	e.GET("/users/:id", hUser.handleRead)
+	e.PATCH("/users/:id", hUser.handleUpdate)
+	e.DELETE("/users/:id", hUser.handleDelete)
 }

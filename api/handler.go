@@ -1,6 +1,7 @@
 package api
 
 import (
+	"Final-API-Ventas/internal/sale"
 	"Final-API-Ventas/internal/user"
 	"errors"
 	"net/http"
@@ -11,13 +12,19 @@ import (
 )
 
 // handler holds the user service and implements HTTP handlers for user CRUD.
-type handler struct {
+type handlerUser struct {
 	userService *user.Service
 	logger      *zap.Logger
 }
 
+// handler holds the user service and implements HTTP handlers for user CRUD.
+type handlerSale struct {
+	saleService *sale.Service
+	logger      *zap.Logger
+}
+
 // handleCreate handles POST /users
-func (h *handler) handleCreate(ctx *gin.Context) {
+func (h *handlerUser) handleCreate(ctx *gin.Context) {
 	// request payload
 	var req struct {
 		Name     string `json:"name"`
@@ -44,7 +51,7 @@ func (h *handler) handleCreate(ctx *gin.Context) {
 }
 
 // handleRead handles GET /users/:id
-func (h *handler) handleRead(ctx *gin.Context) {
+func (h *handlerUser) handleRead(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	u, err := h.userService.Get(id)
@@ -65,7 +72,7 @@ func (h *handler) handleRead(ctx *gin.Context) {
 }
 
 // handleUpdate handles PUT /users/:id
-func (h *handler) handleUpdate(ctx *gin.Context) {
+func (h *handlerUser) handleUpdate(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// bind partial update fields
@@ -90,7 +97,7 @@ func (h *handler) handleUpdate(ctx *gin.Context) {
 }
 
 // handleDelete handles DELETE /users/:id
-func (h *handler) handleDelete(ctx *gin.Context) {
+func (h *handlerUser) handleDelete(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	if err := h.userService.Delete(id); err != nil {
