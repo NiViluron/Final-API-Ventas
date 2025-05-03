@@ -1,6 +1,7 @@
 package api
 
 import (
+	"Final-API-Ventas/internal/sale"
 	"Final-API-Ventas/internal/user"
 
 	"github.com/gin-gonic/gin"
@@ -14,11 +15,19 @@ func InitRoutes(e *gin.Engine) {
 	logger, _ := zap.NewProduction()
 	defer logger.Sync()
 
-	storage := user.NewLocalStorage()
-	service := user.NewService(storage, logger)
+	storageUser := user.NewLocalStorage()
+	serviceUser := user.NewService(storageUser, logger)
+
+	storageSale := sale.NewLocalStorage()
+	serviceSale := sale.NewService(storageSale, logger)
 
 	hUser := handlerUser{
-		userService: service,
+		userService: serviceUser,
+		logger:      logger,
+	}
+
+	hSale := handlerSale{
+		saleService: serviceSale,
 		logger:      logger,
 	}
 
@@ -26,4 +35,6 @@ func InitRoutes(e *gin.Engine) {
 	e.GET("/users/:id", hUser.handleRead)
 	e.PATCH("/users/:id", hUser.handleUpdate)
 	e.DELETE("/users/:id", hUser.handleDelete)
+	e.POST("/sales", hSale.handleCreateSale)
+
 }

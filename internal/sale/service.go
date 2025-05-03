@@ -1,6 +1,9 @@
 package sale
 
 import (
+	"time"
+
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -24,4 +27,14 @@ func NewService(storage Storage, logger *zap.Logger) *Service {
 		storage: storage,
 		logger:  logger,
 	}
+}
+
+func (s *Service) Create(sale *Sale) error {
+	sale.ID = uuid.NewString()
+	now := time.Now()
+	sale.CreateAt = now
+	sale.UpdateAt = now
+	sale.Version = 1
+
+	return s.storage.Set(sale)
 }
