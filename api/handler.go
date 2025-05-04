@@ -5,6 +5,7 @@ import (
 	"Final-API-Ventas/internal/user"
 	"errors"
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -12,19 +13,14 @@ import (
 )
 
 // handler holds the user service and implements HTTP handlers for user CRUD.
-type handlerUser struct {
+type handler struct {
+	saleService *sale.Service
 	userService *user.Service
 	logger      *zap.Logger
 }
 
-// handler holds the user service and implements HTTP handlers for user CRUD.
-type handlerSale struct {
-	saleService *sale.Service
-	logger      *zap.Logger
-}
-
 // handleCreate handles POST /users
-func (h *handlerUser) handleCreate(ctx *gin.Context) {
+func (h *handler) handleCreate(ctx *gin.Context) {
 	// request payload
 	var req struct {
 		Name     string `json:"name"`
@@ -51,23 +47,42 @@ func (h *handlerUser) handleCreate(ctx *gin.Context) {
 }
 
 // handleCreate handles POST /sales
-func (h *handlerSale) handleCreateSale(ctx *gin.Context) {
+func (h *handler) handleCreateSale(ctx *gin.Context) {
 	// request payload
 	var req struct {
 		UserID string  `json:"user_id"`
 		Amount float64 `json:"amount"`
-		Status string  `json:"status"`
 	}
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	// Validar que amount no sea cero
+	if req.Amount == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El monto no puede ser cero"})
+		return
+	}
+
+	// Validar que user exista (utilizamos userService)
+	userID := req.UserID
+	_, err := h.userService.Get(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Usuario no encontrado"})
+		return
+	}
+
+	// Asignar estado aleatorio
+	estados := []string{"pending", "approved", "rejected"}
+	randomIndex := time.Now().UnixNano() % int64(len(estados))
+	status := estados[randomIndex]
+
 	s := &sale.Sale{
 		UserID: req.UserID,
 		Amount: req.Amount,
-		Status: req.Status,
+		Status: status,
 	}
+
 	if err := h.saleService.Create(s); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -78,7 +93,7 @@ func (h *handlerSale) handleCreateSale(ctx *gin.Context) {
 }
 
 // handleRead handles GET /users/:id
-func (h *handlerUser) handleRead(ctx *gin.Context) {
+func (h *handler) handleRead(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	u, err := h.userService.Get(id)
@@ -99,7 +114,7 @@ func (h *handlerUser) handleRead(ctx *gin.Context) {
 }
 
 // handleUpdate handles PUT /users/:id
-func (h *handlerUser) handleUpdate(ctx *gin.Context) {
+func (h *handler) handleUpdate(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// bind partial update fields
@@ -124,7 +139,7 @@ func (h *handlerUser) handleUpdate(ctx *gin.Context) {
 }
 
 // handleDelete handles DELETE /users/:id
-func (h *handlerUser) handleDelete(ctx *gin.Context) {
+func (h *handler) handleDelete(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	if err := h.userService.Delete(id); err != nil {
