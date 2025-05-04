@@ -5,6 +5,7 @@ import (
 	"Final-API-Ventas/internal/user"
 	"errors"
 	"net/http"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -13,8 +14,8 @@ import (
 
 // handler holds the user service and implements HTTP handlers for user CRUD.
 type handler struct {
-	userService *user.Service
 	saleService *sale.Service
+	userService *user.Service
 	logger      *zap.Logger
 }
 
@@ -51,7 +52,6 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 	var req struct {
 		UserID string  `json:"user_id"`
 		Amount float64 `json:"amount"`
-		Status string  `json:"status"`
 	}
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -59,11 +59,31 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 		return
 	}
 
+	// Validar que amount no sea cero
+	if req.Amount == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El monto no puede ser cero"})
+		return
+	}
+
+	// Validar que user exista (utilizamos userService)
+	userID := req.UserID
+	_, err := h.userService.Get(userID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Usuario no encontrado"})
+		return
+	}
+
+	// Asignar estado aleatorio
+	estados := []string{"pending", "approved", "rejected"}
+	randomIndex := time.Now().UnixNano() % int64(len(estados))
+	status := estados[randomIndex]
+
 	s := &sale.Sale{
 		UserID: req.UserID,
 		Amount: req.Amount,
-		Status: req.Status,
+		Status: status,
 	}
+
 	if err := h.saleService.Create(s); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
