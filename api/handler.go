@@ -57,6 +57,7 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
 	// Validar que amount no sea cero
 	if req.Amount == 0 {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El monto no puede ser cero"})
@@ -67,7 +68,7 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 	userID := req.UserID
 	_, err := h.userService.Get(userID)
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "Usuario no encontrado"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Usuario no encontrado"})
 		return
 	}
 
@@ -81,6 +82,7 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 		Amount: req.Amount,
 		Status: status,
 	}
+
 	if err := h.saleService.Create(s); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
