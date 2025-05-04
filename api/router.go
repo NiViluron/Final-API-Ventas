@@ -21,20 +21,16 @@ func InitRoutes(e *gin.Engine) {
 	storageSale := sale.NewLocalStorage()
 	serviceSale := sale.NewService(storageSale, logger)
 
-	hUser := handlerUser{
+	h := handler{
 		userService: serviceUser,
-		logger:      logger,
-	}
-
-	hSale := handlerSale{
 		saleService: serviceSale,
 		logger:      logger,
 	}
 
-	e.POST("/users", hUser.handleCreate)
-	e.GET("/users/:id", hUser.handleRead)
-	e.PATCH("/users/:id", hUser.handleUpdate)
-	e.DELETE("/users/:id", hUser.handleDelete)
-	e.POST("/sales", hSale.handleCreateSale)
-
+	e.POST("/users", h.handleCreate)
+	e.GET("/users/:id", h.handleRead)
+	e.PATCH("/users/:id", h.handleUpdate)
+	e.DELETE("/users/:id", h.handleDelete)
+	e.POST("/sales", h.handleCreateSale)
+	e.GET("/sales", h.handleReadSale)
 }

@@ -38,3 +38,7 @@ func (s *Service) Create(sale *Sale) error {
 
 	return s.storage.Set(sale)
 }
+
+func (s *Service) Get(user_id string, status string) ([]*Sale, error) {
+	return s.storage.Read(user_id, status)
+}

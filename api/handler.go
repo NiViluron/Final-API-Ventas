@@ -12,19 +12,14 @@ import (
 )
 
 // handler holds the user service and implements HTTP handlers for user CRUD.
-type handlerUser struct {
+type handler struct {
 	userService *user.Service
-	logger      *zap.Logger
-}
-
-// handler holds the user service and implements HTTP handlers for user CRUD.
-type handlerSale struct {
 	saleService *sale.Service
 	logger      *zap.Logger
 }
 
 // handleCreate handles POST /users
-func (h *handlerUser) handleCreate(ctx *gin.Context) {
+func (h *handler) handleCreate(ctx *gin.Context) {
 	// request payload
 	var req struct {
 		Name     string `json:"name"`
@@ -51,13 +46,14 @@ func (h *handlerUser) handleCreate(ctx *gin.Context) {
 }
 
 // handleCreate handles POST /sales
-func (h *handlerSale) handleCreateSale(ctx *gin.Context) {
+func (h *handler) handleCreateSale(ctx *gin.Context) {
 	// request payload
 	var req struct {
 		UserID string  `json:"user_id"`
 		Amount float64 `json:"amount"`
 		Status string  `json:"status"`
 	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -78,7 +74,7 @@ func (h *handlerSale) handleCreateSale(ctx *gin.Context) {
 }
 
 // handleRead handles GET /users/:id
-func (h *handlerUser) handleRead(ctx *gin.Context) {
+func (h *handler) handleRead(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	u, err := h.userService.Get(id)
@@ -99,7 +95,7 @@ func (h *handlerUser) handleRead(ctx *gin.Context) {
 }
 
 // handleUpdate handles PUT /users/:id
-func (h *handlerUser) handleUpdate(ctx *gin.Context) {
+func (h *handler) handleUpdate(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	// bind partial update fields
@@ -124,7 +120,7 @@ func (h *handlerUser) handleUpdate(ctx *gin.Context) {
 }
 
 // handleDelete handles DELETE /users/:id
-func (h *handlerUser) handleDelete(ctx *gin.Context) {
+func (h *handler) handleDelete(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	if err := h.userService.Delete(id); err != nil {
@@ -138,4 +134,76 @@ func (h *handlerUser) handleDelete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+func (h *handler) handleReadSale(ctx *gin.Context) {
+	userID := ctx.Query("user_id")
+	status := ctx.Query("status")
+
+	if status != "" && status != "pending" && status != "approved " && status != "rejected" {
+		h.logger.Warn("invalid status value", zap.String("status", status))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+		return
+	}
+
+	u, err := h.userService.Get(userID)
+
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			h.logger.Warn("user not found", zap.String("id", userID))
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Error("error trying to get user", zap.Error(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	s, err := h.saleService.Get(u.ID, status)
+
+	if err != nil {
+		if errors.Is(err, sale.ErrNotFound) {
+			h.logger.Warn("sale not found", zap.String("id", userID))
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Error("error trying to get sale", zap.Error(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("get sale succeed", zap.Any("sale", s))
+
+	// Calculate total amount and count sales by status
+	totalAmount := 0.0
+	approvedCount := 0
+	rejectedCount := 0
+	pendingCount := 0
+
+	for _, sale := range s {
+		switch sale.Status {
+		case "approved":
+			approvedCount++
+		case "rejected":
+			rejectedCount++
+		case "pending":
+			pendingCount++
+		}
+		totalAmount += sale.Amount
+	}
+
+	finalRes := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"quantity":     len(s),
+			"approved":     approvedCount,
+			"rejected":     rejectedCount,
+			"pending":      pendingCount,
+			"total_amount": totalAmount,
+		},
+		"results": s,
+	}
+
+	ctx.JSON(http.StatusOK, finalRes)
 }
