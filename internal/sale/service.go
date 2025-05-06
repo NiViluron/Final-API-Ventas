@@ -60,3 +60,6 @@ func (s *Service) Update(id string, newStatus string) (*Sale, error) {
 	existing.Version++
 	return existing, nil
 }
+func (s *Service) Get(user_id string, status string) ([]*Sale, error) {
+	return s.storage.GetSales(user_id, status)
+}

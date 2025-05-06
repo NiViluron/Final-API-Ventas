@@ -33,4 +33,5 @@ func InitRoutes(e *gin.Engine) {
 	e.DELETE("/users/:id", h.handleDelete)
 	e.POST("/sales", h.handleCreateSale)
 	e.PATCH("/sales/:id", h.handlePatchSales)
+	e.GET("/sales", h.handleReadSale)
 }

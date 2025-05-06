@@ -53,6 +53,7 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 		UserID string  `json:"user_id"`
 		Amount float64 `json:"amount"`
 	}
+
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -180,10 +181,78 @@ func (h *handler) handlePatchSales(ctx *gin.Context) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
+	}
+	ctx.JSON(http.StatusOK, s)
+}
 
+func (h *handler) handleReadSale(ctx *gin.Context) {
+	userID := ctx.Query("user_id")
+	status := ctx.Query("status")
+
+	if status != "" && status != "pending" && status != "approved " && status != "rejected" {
+		h.logger.Warn("invalid status value", zap.String("status", status))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
+		return
+	}
+
+	u, err := h.userService.Get(userID)
+
+	if err != nil {
+		if errors.Is(err, user.ErrNotFound) {
+			h.logger.Warn("user not found", zap.String("id", userID))
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Error("error trying to get user", zap.Error(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, s)
+	s, err := h.saleService.Get(u.ID, status)
+
+	if err != nil {
+		if errors.Is(err, sale.ErrNotFound) {
+			h.logger.Warn("sale not found", zap.String("id", userID))
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.logger.Error("error trying to get sale", zap.Error(err))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	h.logger.Info("get sale succeed", zap.Any("sale", s))
+
+	// Calculate total amount and count sales by status
+	totalAmount := 0.0
+	approvedCount := 0
+	rejectedCount := 0
+	pendingCount := 0
+
+	for _, sale := range s {
+		switch sale.Status {
+		case "approved":
+			approvedCount++
+		case "rejected":
+			rejectedCount++
+		case "pending":
+			pendingCount++
+		}
+		totalAmount += sale.Amount
+	}
+
+	finalRes := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"quantity":     len(s),
+			"approved":     approvedCount,
+			"rejected":     rejectedCount,
+			"pending":      pendingCount,
+			"total_amount": totalAmount,
+		},
+		"results": s,
+	}
+
+	ctx.JSON(http.StatusOK, finalRes)
 }
