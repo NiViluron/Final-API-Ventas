@@ -154,3 +154,36 @@ func (h *handler) handleDelete(ctx *gin.Context) {
 
 	ctx.Status(http.StatusNoContent)
 }
+
+// handlePatchSales handles /sales/:id
+func (h *handler) handlePatchSales(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	var fields *sale.UpdateFields
+	if err := ctx.ShouldBindJSON(&fields); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if *fields.Status != "approved" && *fields.Status != "rejected" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": errors.New("the new status must be 'approved' or 'rejected'").Error()})
+		return
+	}
+
+	s, err := h.saleService.Update(id, *fields.Status)
+	if err != nil {
+		if errors.Is(err, sale.ErrNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		if errors.Is(err, sale.ErrInvalidTransition) {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, s)
+}

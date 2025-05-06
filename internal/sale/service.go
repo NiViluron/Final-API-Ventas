@@ -1,11 +1,15 @@
 package sale
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+var ErrInvalidTransition = errors.New("actual status is not pending")
+var ErrEmptyStatus = errors.New("new status is empty")
 
 // Service provides high-level user management operations on a LocalStorage backend.
 type Service struct {
@@ -37,4 +41,22 @@ func (s *Service) Create(sale *Sale) error {
 	sale.Version = 1
 
 	return s.storage.Set(sale)
+}
+
+func (s *Service) Update(id string, newStatus string) (*Sale, error) {
+	if newStatus == "" {
+		return nil, ErrEmptyStatus
+	}
+	existing, err := s.storage.Read(id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.Status != "pending" {
+		return nil, ErrInvalidTransition
+	}
+
+	existing.Status = newStatus
+	existing.UpdateAt = time.Now()
+	existing.Version++
+	return existing, nil
 }
