@@ -111,7 +111,7 @@ func (h *handler) handleReadSale(ctx *gin.Context) {
 	userID := ctx.Query("user_id")
 	status := ctx.Query("status")
 
-	if status != "" && status != "pending" && status != "approved " && status != "rejected" {
+	if status != "" && status != "pending" && status != "approved" && status != "rejected" {
 		h.logger.Warn("invalid status value", zap.String("status", status))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
 		return
