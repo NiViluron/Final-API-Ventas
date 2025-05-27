@@ -4,10 +4,8 @@ import (
 	"Final-API-Ventas/internal/sale"
 	"errors"
 	"net/http"
-	"time"
 
 	"go.uber.org/zap"
-	"resty.dev/v3"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,45 +29,17 @@ func (h *handler) handleCreateSale(ctx *gin.Context) {
 		return
 	}
 
-	// Validar que amount no sea cero
-	if req.Amount == 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "El monto no puede ser cero"})
-		return
-	}
-
-	// Validar que user exista (utilizamos API user)
-	userID := req.UserID
-	client := resty.New()
-	defer client.Close()
-
-	res, err := client.R().
-		EnableTrace().
-		Get("http://localhost:8080/users/" + userID)
-
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error en la consulta de usuario"})
-		h.logger.Error("error trying to get user", zap.Error(err))
-		return
-	}
-
-	if res.IsError() {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Usuario no encontrado"})
-		h.logger.Warn("user not found", zap.String("id", userID))
-		return
-	}
-
-	// Asignar estado aleatorio
-	estados := []string{"pending", "approved", "rejected"}
-	randomIndex := time.Now().UnixNano() % int64(len(estados))
-	status := estados[randomIndex]
-
 	s := &sale.Sale{
 		UserID: req.UserID,
 		Amount: req.Amount,
-		Status: status,
 	}
 
 	if err := h.saleService.Create(s); err != nil {
+		if errors.Is(err, sale.ErrInvalidAmount) || errors.Is(err, sale.ErrInvalidUser) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -111,37 +81,11 @@ func (h *handler) handleReadSale(ctx *gin.Context) {
 	userID := ctx.Query("user_id")
 	status := ctx.Query("status")
 
-	if status != "" && status != "pending" && status != "approved" && status != "rejected" {
-		h.logger.Warn("invalid status value", zap.String("status", status))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status value"})
-		return
-	}
-
-	client := resty.New()
-	defer client.Close()
-
-	res, err := client.R().
-		EnableTrace().
-		Get("http://localhost:8080/users/" + userID)
-
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error en la consulta de usuario"})
-		h.logger.Error("error trying to get user", zap.Error(err))
-		return
-	}
-
-	if res.IsError() {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Usuario no encontrado"})
-		h.logger.Warn("user not found", zap.String("id", userID))
-		return
-	}
-
 	s, err := h.saleService.Get(userID, status)
 
 	if err != nil {
-		if errors.Is(err, sale.ErrNotFound) {
-			h.logger.Warn("sale not found", zap.String("id", userID))
-			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		if errors.Is(err, sale.ErrInvalidStatus) {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
