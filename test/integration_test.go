@@ -17,9 +17,9 @@ import (
 func TestIntegrationCreateAndGet(t *testing.T) {
 	mockHandler := http.NewServeMux()
 
-	mockHandler.HandleFunc("/users/test", func(w http.ResponseWriter, r *http.Request) {
+	mockHandler.HandleFunc("/users/123", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`test`))
+		w.Write([]byte(`{"id": "123"}`))
 	})
 
 	mockServer := httptest.NewServer(mockHandler)
@@ -32,7 +32,7 @@ func TestIntegrationCreateAndGet(t *testing.T) {
 
 	// Create a new sale
 	req, _ := http.NewRequest(http.MethodPost, "/sales", bytes.NewBufferString(`{
-		"user_id": "test",
+		"user_id": "123",
 		"amount": 100.0	
 	}`))
 
@@ -43,7 +43,7 @@ func TestIntegrationCreateAndGet(t *testing.T) {
 
 	var resSale *sale.Sale
 	require.NoError(t, json.Unmarshal(res.Body.Bytes(), &resSale))
-	require.Equal(t, "test", resSale.UserID)
+	require.Equal(t, "123", resSale.UserID)
 	require.Equal(t, 100.0, resSale.Amount)
 	require.Equal(t, 1, resSale.Version)
 	require.NotEmpty(t, resSale.Status)
@@ -69,6 +69,14 @@ func TestIntegrationCreateAndGet(t *testing.T) {
 		require.Equal(t, resSale.Amount, resSale2.Amount)
 		require.Equal(t, resSale.CreateAt, resSale2.CreateAt)
 		require.NotEmpty(t, resSale2.UpdateAt)
+	} else {
+		req, _ = http.NewRequest(http.MethodPatch, "/sales/"+resSale.ID, bytes.NewBufferString(`{
+			"status":"approved"
+		}`))
+
+		res = fakeRequest(app, req)
+		require.NotNil(t, res)
+		require.Equal(t, http.StatusConflict, res.Code)
 	}
 
 	// Get the sale
